@@ -351,6 +351,7 @@ void loop() {
       wriststate=1;
       }
      // }
+     if (wriststate==1){
       w2=wrist2.readRangeContinuousMillimeters();
       Serial.print(w2);
      // if (!wrist2.timeoutOccurred()){
@@ -359,6 +360,7 @@ void loop() {
       wriststate=0;
       }
     //  }
+     }
       else{
     }
   }
