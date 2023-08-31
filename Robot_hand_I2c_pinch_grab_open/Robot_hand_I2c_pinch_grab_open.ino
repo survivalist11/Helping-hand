@@ -33,12 +33,9 @@ VL53L0X open1;
 #define SERVOMID4 210
 #define SERVOMAX  (400) // This is the 'maximum' pulse length count (out of 4096)
 #define SERVOMAXSTOP 210
-#define SERVOMAXSTOP1 203
-#define SERVOMAXSTOP2 221
+#define SERVOMAXSTOP1 200
+#define SERVOMAXSTOP2 250
 #define SERVO_FREQ 50 // Analog servos run at ~50 Hz updates
-//int sensorPin = A0;
-//int sensorPin1 = A1;
-//int sensorPin2 = A2;// select the input pin for the potentiometer      // select the pin for the LED
 int grabstate=0;
 int wriststate=0;
 int w;
@@ -185,16 +182,16 @@ void setup() {
   open1.setAddress((uint8_t)05);
   Serial.println("15");
 
-  digitalWrite(A2, HIGH);
-  delay(150);
-  Serial.println("13");
-  wrist2.init(true);
-
-  Serial.println("14");
-  delay(100);
-  wrist2.setAddress((uint8_t)06);
-  Serial.println("15");
-  Serial.println("addresses set");
+//  digitalWrite(A2, HIGH);
+//  delay(150);
+//  Serial.println("13");
+//  wrist2.init(true);
+//
+//  Serial.println("14");
+//  delay(100);
+//  wrist2.setAddress((uint8_t)06);
+//  Serial.println("15");
+//  Serial.println("addresses set");
   digitalWrite(A3, HIGH);
   delay(150);
   Serial.println("13");
@@ -348,6 +345,7 @@ void loop() {
     //  if (!wrist1.timeoutOccurred()){
       if (((w < 80)&&(w>1)&&(grabstate==0)&&(wriststate==0))||((w3 < 80)&&(w3>1)&&(grabstate==0)&&(wriststate==0))) {
       servoMinUpToMax(servo0);
+      delay(3000);
       wriststate=1;
       }
      // }
