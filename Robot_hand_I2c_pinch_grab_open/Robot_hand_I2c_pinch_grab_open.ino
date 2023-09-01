@@ -16,7 +16,8 @@
   Written by Limor Fried/Ladyada for Adafruit Industries.  
   BSD license, all text above must be included in any redistribution
  ****************************************************/
-
+#include <PDM.h>
+#include <nikarts-project-1_inferencing.h>
 #include <Wire.h>
 #include <Adafruit_PWMServoDriver.h>
 #include <VL53L0X.h>
@@ -24,7 +25,7 @@ Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
 VL53L0X pinch1;
 VL53L0X grab1;
 VL53L0X wrist1;
-VL53L0X wrist2;
+//VL53L0X wrist2;
 VL53L0X wrist3;
 VL53L0X open1;
 #define SERVOMINSTOP 100
@@ -36,17 +37,31 @@ VL53L0X open1;
 #define SERVOMAXSTOP1 200
 #define SERVOMAXSTOP2 250
 #define SERVO_FREQ 50 // Analog servos run at ~50 Hz updates
+//int sensorPin = A0;
+//int sensorPin1 = A1;
+//int sensorPin2 = A2;// select the input pin for the potentiometer      // select the pin for the LED
 int grabstate=0;
 int wriststate=0;
 int w;
 int o;
 int g;
 int p;
-int w2;
+//int w2;
 int w3;
 //unsigned long duration;
 //unsigned long duration1;
 //unsigned long duration2;
+typedef struct {
+    int16_t *buffer;
+    uint8_t buf_ready;
+    uint32_t buf_count;
+    uint32_t n_samples;
+} inference_t;
+
+static inference_t inference;
+static signed short sampleBuffer[2048];
+static bool debug_nn = false; // Set this to true to see e.g. features generated from the raw signal
+
 struct servo {
   int id;
    int minPos;
@@ -77,7 +92,7 @@ struct servo servo2;
 struct servo servo3;
 struct servo servo4;
 struct servo servo5;
-
+struct servo servo6;
 void setup() {
   servo0.id = 0;
   servo0.minPos = SERVOMINSTOP; 
@@ -104,6 +119,10 @@ void setup() {
   servo5.id = 5;
   servo5.minPos = SERVOMIN;
   servo5.midPos = SERVOMID4;
+  servo5.maxPos = SERVOMAX;
+  servo5.id = 6;
+  servo5.minPos = SERVOMIN;
+  servo5.midPos = SERVOMID;
   servo5.maxPos = SERVOMAX;
   pwm.begin();
   pwm.setOscillatorFrequency(27000000);
@@ -208,11 +227,12 @@ void setup() {
   servoMaxDownToMin(servo2);
   servoMinUpToMax(servo4);  
   servoMaxDownToMin(servo0);
+  servoMaxDownToMin(servo6);
   servoMinUpToMax(servo5);
 pinch1.startContinuous();
 grab1.startContinuous();
 wrist1.startContinuous();
-wrist2.startContinuous();
+//wrist2.startContinuous();
 wrist3.startContinuous();
 open1.startContinuous();
 }
@@ -328,7 +348,7 @@ void loop() {
       o=open1.readRangeContinuousMillimeters();
       Serial.print(o);
  //     if (!open1.timeoutOccurred()){
-      if ((o < 40)&&(o>1)) {
+      if ((o < 40)&&(o>1)&&(grabstate==1)) {
       servoMinUpToMax(servo3);
       delay(100);
       servoMaxDownToMin(servo1);
@@ -338,22 +358,58 @@ void loop() {
       delay(3000);
       grabstate=0;
       }
+      o=open1.readRangeContinuousMillimeters();
+      if ((o < 40)&&(o>1)&&(grabstate==0)){
+      servoMinUpToMax(servo6);
+    ei_printf("Recording...\n");
+
+    bool m = microphone_inference_record();
+    if (!m) {
+        ei_printf("ERR: Failed to record audio...\n");
+        return;
+    }
+
+    ei_printf("Recording done\n");
+
+    signal_t signal;
+    signal.total_length = EI_CLASSIFIER_RAW_SAMPLE_COUNT;
+    signal.get_data = &microphone_audio_signal_get_data;
+    ei_impulse_result_t result = { 0 };
+
+    EI_IMPULSE_ERROR r = run_classifier(&signal, &result, debug_nn);
+    if (r != EI_IMPULSE_OK) {
+        ei_printf("ERR: Failed to run classifier (%d)\n", r);
+        return;
+    }
+
+    // print the predictions
+    ei_printf("Predictions ");
+    ei_printf("(DSP: %d ms., Classification: %d ms., Anomaly: %d ms.)",
+        result.timing.dsp, result.timing.classification, result.timing.anomaly);
+    ei_printf(": \n");
+    int up = result.classification[3].value;
+    int down = result.classification[0].value;
+    if (up>=80){
+      servoMinUpToMax(servo6);
+    }
+    if (down>=80){
+      servoMaxDownToMin(servo6);
+    }
+      }
     //  }
       w=wrist1.readRangeContinuousMillimeters();
-      w3=wrist3.readRangeContinuousMillimeters();
       Serial.print(w);
     //  if (!wrist1.timeoutOccurred()){
-      if (((w < 80)&&(w>1)&&(grabstate==0)&&(wriststate==0))||((w3 < 80)&&(w3>1)&&(grabstate==0)&&(wriststate==0))) {
+      if ((w < 80)&&(w>1)&&(grabstate==0)&&(wriststate==0)) {
       servoMinUpToMax(servo0);
-      delay(3000);
       wriststate=1;
       }
      // }
      if (wriststate==1){
-      w2=wrist2.readRangeContinuousMillimeters();
-      Serial.print(w2);
+      w3=wrist3.readRangeContinuousMillimeters();
+      Serial.print(w3);
      // if (!wrist2.timeoutOccurred()){
-      if ((w2 < 100)&&(w2>1)&&(grabstate==0)&&(wriststate==1)) {
+      if ((w3 < 100)&&(w3>1)&&(grabstate==0)&&(wriststate==1)) {
       servoMaxDownToMin(servo0);
       wriststate=0;
       }
@@ -362,3 +418,103 @@ void loop() {
       else{
     }
   }
+
+  static void pdm_data_ready_inference_callback(void)
+{
+    int bytesAvailable = PDM.available();
+
+    // read into the sample buffer
+    int bytesRead = PDM.read((char *)&sampleBuffer[0], bytesAvailable);
+
+    if (inference.buf_ready == 0) {
+        for(int i = 0; i < bytesRead>>1; i++) {
+            inference.buffer[inference.buf_count++] = sampleBuffer[i];
+
+            if(inference.buf_count >= inference.n_samples) {
+                inference.buf_count = 0;
+                inference.buf_ready = 1;
+                break;
+            }
+        }
+    }
+}
+
+/**
+ * @brief      Init inferencing struct and setup/start PDM
+ *
+ * @param[in]  n_samples  The n samples
+ *
+ * @return     { description_of_the_return_value }
+ */
+static bool microphone_inference_start(uint32_t n_samples)
+{
+    inference.buffer = (int16_t *)malloc(n_samples * sizeof(int16_t));
+
+    if(inference.buffer == NULL) {
+        return false;
+    }
+
+    inference.buf_count  = 0;
+    inference.n_samples  = n_samples;
+    inference.buf_ready  = 0;
+
+    // configure the data receive callback
+    PDM.onReceive(&pdm_data_ready_inference_callback);
+
+    PDM.setBufferSize(4096);
+
+    // initialize PDM with:
+    // - one channel (mono mode)
+    // - a 16 kHz sample rate
+    if (!PDM.begin(1, EI_CLASSIFIER_FREQUENCY)) {
+        ei_printf("Failed to start PDM!");
+        microphone_inference_end();
+
+        return false;
+    }
+
+    // set the gain, defaults to 20
+    PDM.setGain(127);
+
+    return true;
+}
+
+/**
+ * @brief      Wait on new data
+ *
+ * @return     True when finished
+ */
+static bool microphone_inference_record(void)
+{
+    inference.buf_ready = 0;
+    inference.buf_count = 0;
+
+    while(inference.buf_ready == 0) {
+        delay(10);
+    }
+
+    return true;
+}
+
+/**
+ * Get raw audio signal data
+ */
+static int microphone_audio_signal_get_data(size_t offset, size_t length, float *out_ptr)
+{
+    numpy::int16_to_float(&inference.buffer[offset], out_ptr, length);
+
+    return 0;
+}
+
+/**
+ * @brief      Stop PDM and release buffers
+ */
+static void microphone_inference_end(void)
+{
+    PDM.end();
+    free(inference.buffer);
+}
+
+#if !defined(EI_CLASSIFIER_SENSOR) || EI_CLASSIFIER_SENSOR != EI_CLASSIFIER_SENSOR_MICROPHONE
+#error "Invalid model for current sensor."
+#endif
