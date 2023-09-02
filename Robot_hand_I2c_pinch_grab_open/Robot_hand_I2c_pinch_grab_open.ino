@@ -16,16 +16,17 @@
   Written by Limor Fried/Ladyada for Adafruit Industries.  
   BSD license, all text above must be included in any redistribution
  ****************************************************/
-#include <PDM.h>
-#include <nikarts-project-1_inferencing.h>
+
 #include <Wire.h>
 #include <Adafruit_PWMServoDriver.h>
 #include <VL53L0X.h>
+#include <PDM.h>
+#include <nikarts-project-1_inferencing.h>
 Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
 VL53L0X pinch1;
 VL53L0X grab1;
 VL53L0X wrist1;
-//VL53L0X wrist2;
+VL53L0X wrist2;
 VL53L0X wrist3;
 VL53L0X open1;
 #define SERVOMINSTOP 100
@@ -46,11 +47,18 @@ int w;
 int o;
 int g;
 int p;
-//int w2;
+int w2;
 int w3;
 //unsigned long duration;
 //unsigned long duration1;
 //unsigned long duration2;
+struct servo {
+  int id;
+   int minPos;
+   int midPos;
+   int maxPos;
+   int maxPos2;
+};
 typedef struct {
     int16_t *buffer;
     uint8_t buf_ready;
@@ -62,13 +70,6 @@ static inference_t inference;
 static signed short sampleBuffer[2048];
 static bool debug_nn = false; // Set this to true to see e.g. features generated from the raw signal
 
-struct servo {
-  int id;
-   int minPos;
-   int midPos;
-   int maxPos;
-   int maxPos2;
-};
 //void servoUp(struct servo servoID) {
 //  Serial.println(servoID.id);
 //    for (uint16_t pulselen = servoID.minPos; pulselen < servoID.maxPos; pulselen++) {
@@ -93,6 +94,7 @@ struct servo servo3;
 struct servo servo4;
 struct servo servo5;
 struct servo servo6;
+
 void setup() {
   servo0.id = 0;
   servo0.minPos = SERVOMINSTOP; 
@@ -120,10 +122,10 @@ void setup() {
   servo5.minPos = SERVOMIN;
   servo5.midPos = SERVOMID4;
   servo5.maxPos = SERVOMAX;
-  servo5.id = 6;
-  servo5.minPos = SERVOMIN;
-  servo5.midPos = SERVOMID;
-  servo5.maxPos = SERVOMAX;
+  servo6.id = 6;
+  servo6.minPos = SERVOMIN;
+  servo6.midPos = SERVOMID;
+  servo6.maxPos = SERVOMAX;
   pwm.begin();
   pwm.setOscillatorFrequency(27000000);
   pwm.setPWMFreq(SERVO_FREQ);  // Analog servos run at ~50 Hz updates
@@ -201,16 +203,16 @@ void setup() {
   open1.setAddress((uint8_t)05);
   Serial.println("15");
 
-//  digitalWrite(A2, HIGH);
-//  delay(150);
-//  Serial.println("13");
-//  wrist2.init(true);
-//
-//  Serial.println("14");
-//  delay(100);
-//  wrist2.setAddress((uint8_t)06);
-//  Serial.println("15");
-//  Serial.println("addresses set");
+  digitalWrite(A2, HIGH);
+  delay(150);
+  Serial.println("13");
+  wrist2.init(true);
+
+  Serial.println("14");
+  delay(100);
+  wrist2.setAddress((uint8_t)06);
+  Serial.println("15");
+  Serial.println("addresses set");
   digitalWrite(A3, HIGH);
   delay(150);
   Serial.println("13");
@@ -235,6 +237,20 @@ wrist1.startContinuous();
 //wrist2.startContinuous();
 wrist3.startContinuous();
 open1.startContinuous();
+while (!Serial);
+    Serial.println("Edge Impulse Inferencing Demo");
+
+    // summary of inferencing settings (from model_metadata.h)
+    ei_printf("Inferencing settings:\n");
+    ei_printf("\tInterval: %.2f ms.\n", (float)EI_CLASSIFIER_INTERVAL_MS);
+    ei_printf("\tFrame size: %d\n", EI_CLASSIFIER_DSP_INPUT_FRAME_SIZE);
+    ei_printf("\tSample length: %d ms.\n", EI_CLASSIFIER_RAW_SAMPLE_COUNT / 16);
+    ei_printf("\tNo. of classes: %d\n", sizeof(ei_classifier_inferencing_categories) / sizeof(ei_classifier_inferencing_categories[0]));
+
+    if (microphone_inference_start(EI_CLASSIFIER_RAW_SAMPLE_COUNT) == false) {
+        ei_printf("ERR: Could not allocate audio buffer (size %d), this could be due to the window length of your model\r\n", EI_CLASSIFIER_RAW_SAMPLE_COUNT);
+        return;
+    }
 }
 // You can use this function if you'd like to set the pulse length in seconds
 // e.g. setServoPulse(0, 0.001) is a ~1 millisecond pulse width. It's not precise!
@@ -323,7 +339,6 @@ void loop() {
       }
      // }
       g=grab1.readRangeContinuousMillimeters();
-      Serial.print(g);
 //      if (!grab1.timeoutOccurred()){
         if((g < 50)&&(g>1)&&(grabstate==0)&&(wriststate==1)){
       servoMinUpToMax(servo1);
@@ -336,7 +351,6 @@ void loop() {
       }
     //  }
       p=pinch1.readRangeContinuousMillimeters();
-      Serial.print(p);
 //      if (!pinch1.timeoutOccurred()){
         if ((p < 50)&&(p>1)&&(grabstate==0)) {
       servoMinUpToMax2(servo2);
@@ -346,7 +360,6 @@ void loop() {
       }
 //      }
       o=open1.readRangeContinuousMillimeters();
-      Serial.print(o);
  //     if (!open1.timeoutOccurred()){
       if ((o < 40)&&(o>1)&&(grabstate==1)) {
       servoMinUpToMax(servo3);
@@ -358,47 +371,50 @@ void loop() {
       delay(3000);
       grabstate=0;
       }
-      o=open1.readRangeContinuousMillimeters();
-      if ((o < 40)&&(o>1)&&(grabstate==0)){
-      servoMinUpToMax(servo6);
-    ei_printf("Recording...\n");
+      if ((o < 40)&&(o>1)&&(grabstate==0)) {
+       ei_printf("Starting inferencing in 2 seconds...\n");
+  ei_printf("Recording...\n");
+  bool m = microphone_inference_record();
 
-    bool m = microphone_inference_record();
-    if (!m) {
-        ei_printf("ERR: Failed to record audio...\n");
-        return;
-    }
+  if (!m) {
+    ei_printf("ERR: Failed to record audio...\n");
+    return;
+  }
 
-    ei_printf("Recording done\n");
+  ei_printf("Recording done\n");
 
-    signal_t signal;
-    signal.total_length = EI_CLASSIFIER_RAW_SAMPLE_COUNT;
-    signal.get_data = &microphone_audio_signal_get_data;
-    ei_impulse_result_t result = { 0 };
+  signal_t signal;
+  signal.total_length = EI_CLASSIFIER_RAW_SAMPLE_COUNT;
+  signal.get_data = &microphone_audio_signal_get_data;
+  ei_impulse_result_t result = {0};
 
-    EI_IMPULSE_ERROR r = run_classifier(&signal, &result, debug_nn);
-    if (r != EI_IMPULSE_OK) {
-        ei_printf("ERR: Failed to run classifier (%d)\n", r);
-        return;
-    }
+  EI_IMPULSE_ERROR r = run_classifier(&signal, &result, debug_nn);
 
-    // print the predictions
-    ei_printf("Predictions ");
-    ei_printf("(DSP: %d ms., Classification: %d ms., Anomaly: %d ms.)",
-        result.timing.dsp, result.timing.classification, result.timing.anomaly);
-    ei_printf(": \n");
-    int up = result.classification[3].value;
-    int down = result.classification[0].value;
-    if (up>=80){
-      servoMinUpToMax(servo6);
-    }
-    if (down>=80){
-      servoMaxDownToMin(servo6);
-    }
-      }
+  if (r != EI_IMPULSE_OK) {
+    ei_printf("ERR: Failed to run classifier (%d)\n", r);
+    return;
+  }
+
+  ei_printf("Predictions ");
+  ei_printf("(DSP: %d ms., Classification: %d ms., Anomaly: %d ms.)",
+    result.timing.dsp, result.timing.classification, result.timing.anomaly);
+  ei_printf(": \n");
+
+  for (size_t ix = 0; ix < EI_CLASSIFIER_LABEL_COUNT; ix++) {
+    ei_printf("    %s: %.5f\n", result.classification[ix].label, result.classification[ix].value);
+  }
+  if (result.classification[3].value>0.80){
+    servoMinUpToMax(servo6);
+  }
+  if (result.classification[0].value>0.80){
+    servoMaxDownToMin(servo6);
+  }
+#if EI_CLASSIFIER_HAS_ANOMALY == 1
+  ei_printf("    anomaly score: %.3f\n", result.anomaly);
+#endif
+}
     //  }
       w=wrist1.readRangeContinuousMillimeters();
-      Serial.print(w);
     //  if (!wrist1.timeoutOccurred()){
       if ((w < 80)&&(w>1)&&(grabstate==0)&&(wriststate==0)) {
       servoMinUpToMax(servo0);
@@ -407,7 +423,6 @@ void loop() {
      // }
      if (wriststate==1){
       w3=wrist3.readRangeContinuousMillimeters();
-      Serial.print(w3);
      // if (!wrist2.timeoutOccurred()){
       if ((w3 < 100)&&(w3>1)&&(grabstate==0)&&(wriststate==1)) {
       servoMaxDownToMin(servo0);
@@ -416,7 +431,7 @@ void loop() {
     //  }
      }
       else{
-    }
+      }
   }
 
   static void pdm_data_ready_inference_callback(void)
@@ -514,7 +529,3 @@ static void microphone_inference_end(void)
     PDM.end();
     free(inference.buffer);
 }
-
-#if !defined(EI_CLASSIFIER_SENSOR) || EI_CLASSIFIER_SENSOR != EI_CLASSIFIER_SENSOR_MICROPHONE
-#error "Invalid model for current sensor."
-#endif
