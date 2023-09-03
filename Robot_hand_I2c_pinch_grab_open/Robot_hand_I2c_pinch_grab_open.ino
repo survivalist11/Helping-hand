@@ -116,9 +116,9 @@ void setup() {
   servo5.midPos = SERVOMID4;
   servo5.maxPos = SERVOMAX;
   servo6.id = 6;
-  servo6.minPos = SERVOMIN;
+  servo6.minPos = SERVOMINSTOP;
   servo6.midPos = SERVOMID;
-  servo6.maxPos = SERVOMAX;
+  servo6.maxPos = SERVOMAXSTOP;
   pwm.begin();
   pwm.setOscillatorFrequency(27000000);
   pwm.setPWMFreq(SERVO_FREQ);  // Analog servos run at ~50 Hz updates
@@ -370,10 +370,10 @@ void loop() {
   for (size_t ix = 0; ix < EI_CLASSIFIER_LABEL_COUNT; ix++) {
     ei_printf("    %s: %.5f\n", result.classification[ix].label, result.classification[ix].value);
   }
-  if (result.classification[3].value>0.80){
+  if (result.classification[0].value>0.80){
     servoMinUpToMax(servo6);
   }
-  if (result.classification[0].value>0.80){
+  if (result.classification[3].value>0.80){
     servoMaxDownToMin(servo6);
   }
 #if EI_CLASSIFIER_HAS_ANOMALY == 1
