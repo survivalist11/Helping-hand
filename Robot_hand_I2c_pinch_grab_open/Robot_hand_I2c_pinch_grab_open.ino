@@ -31,8 +31,10 @@ VL53L0X open1;
 #define SERVOMID4 210
 #define SERVOMAX  (400) // This is the 'maximum' pulse length count (out of 4096)
 #define SERVOMAXSTOP 210
-#define SERVOMAXSTOP1 200
-#define SERVOMAXSTOP2 250
+#define SERVOMAXSTOP1 190
+#define SERVOMAXSTOP2 265
+#define SERVOMAXSTOP3 280
+#define SERVOMAXSTOP4 355
 #define SERVO_FREQ 50 // Analog servos run at ~50 Hz updates
 //int sensorPin = A0;
 //int sensorPin1 = A1;
@@ -54,6 +56,7 @@ struct servo {
    int midPos;
    int maxPos;
    int maxPos2;
+   int maxPos3;
 };
 typedef struct {
     int16_t *buffer;
@@ -98,11 +101,13 @@ void setup() {
   servo1.midPos = SERVOMID;
   servo1.maxPos = SERVOMAX;
   servo1.maxPos2 = SERVOMAXSTOP1;
+  servo1.maxPos3 = SERVOMAXSTOP3;
   servo2.id = 2;
   servo2.minPos = SERVOMIN;
   servo2.midPos = SERVOMID;
   servo2.maxPos = SERVOMAX;
   servo2.maxPos2 = SERVOMAXSTOP2;
+  servo2.maxPos3 = SERVOMAXSTOP4;
   servo3.id = 3;
   servo3.minPos = SERVOMIN;
   servo3.midPos = SERVOMID;
@@ -299,10 +304,17 @@ void servoMinUpToMax2(struct servo servoID) {
     }
     Serial.println("MinUpToMax");
 }
+void servoMinUpToMax3(struct servo servoID) {
+  Serial.println(servoID.id);
+    for (uint16_t pulselen = servoID.minPos; pulselen < servoID.maxPos3; pulselen++) {
+    pwm.setPWM(servoID.id, 0, pulselen);
+    }
+    Serial.println("MinUpToMax");
+}
 void loop() {
       g=grab1.readRangeContinuousMillimeters();
      // if (!grab1.timeoutOccurred()){
-      if ((g < 60)&&(g>1)&&(grabstate==0)&&(wriststate==0)) {
+      if ((g < 40)&&(g>1)&&(grabstate==0)&&(wriststate==0)) {
       servoMinUpToMid(servo2);
       servoMaxDownToMid(servo5);
       servoMaxDownToMid(servo3);
@@ -314,7 +326,7 @@ void loop() {
      // }
       g=grab1.readRangeContinuousMillimeters();
 //      if (!grab1.timeoutOccurred()){
-        if((g < 50)&&(g>1)&&(grabstate==0)&&(wriststate==1)){
+        if((g < 40)&&(g>1)&&(grabstate==0)&&(wriststate==1)){
       servoMinUpToMax(servo1);
       servoMinUpToMax(servo2);
       servoMaxDownToMin(servo4);
@@ -326,12 +338,18 @@ void loop() {
     //  }
       p=pinch1.readRangeContinuousMillimeters();
 //      if (!pinch1.timeoutOccurred()){
-        if ((p < 50)&&(p>1)&&(grabstate==0)) {
+        if ((p < 80)&&(p>1)&&(grabstate==0)&&(wriststate==0)) {
       servoMinUpToMax2(servo2);
-      delay(50);
       servoMinUpToMax2(servo1);
       grabstate=1;
       }
+      p=pinch1.readRangeContinuousMillimeters();
+      if ((p < 80)&&(p>1)&&(grabstate==0)&&(wriststate==1)){
+        servoMinUpToMax3(servo2);
+        servoMinUpToMax3(servo1);
+        grabstate=1;
+      }
+      
 //      }
       o=open1.readRangeContinuousMillimeters();
  //     if (!open1.timeoutOccurred()){
@@ -394,6 +412,7 @@ void loop() {
      // if (!wrist2.timeoutOccurred()){
       if ((w3 < 100)&&(w3>1)&&(grabstate==0)&&(wriststate==1)) {
       servoMaxDownToMin(servo0);
+      delay(1000);
       wriststate=0;
       }
     //  }
