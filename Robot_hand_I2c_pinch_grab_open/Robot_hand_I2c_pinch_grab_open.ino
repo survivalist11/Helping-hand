@@ -2,21 +2,17 @@
   This is an example for our Adafruit 16-channel PWM & Servo driver
   Servo test - this will drive 8 servos, one after the other on the
   first 8 pins of the PCA9685
-
   Pick one up today in the adafruit shop!
   ------> http://www.adafruit.com/products/815
   
   These drivers use I2C to communicate, 2 pins are required to  
   interface.
-
   Adafruit invests time and resources providing this open source code, 
   please support Adafruit and open-source hardware by purchasing 
   products from Adafruit!
-
   Written by Limor Fried/Ladyada for Adafruit Industries.  
   BSD license, all text above must be included in any redistribution
  ****************************************************/
-
 #include <Wire.h>
 #include <Adafruit_PWMServoDriver.h>
 #include <VL53L0X.h>
@@ -65,11 +61,9 @@ typedef struct {
     uint32_t buf_count;
     uint32_t n_samples;
 } inference_t;
-
 static inference_t inference;
 static signed short sampleBuffer[2048];
 static bool debug_nn = false; // Set this to true to see e.g. features generated from the raw signal
-
 //void servoUp(struct servo servoID) {
 //  Serial.println(servoID.id);
 //    for (uint16_t pulselen = servoID.minPos; pulselen < servoID.maxPos; pulselen++) {
@@ -94,7 +88,6 @@ struct servo servo3;
 struct servo servo4;
 struct servo servo5;
 struct servo servo6;
-
 void setup() {
   servo0.id = 0;
   servo0.minPos = SERVOMINSTOP; 
@@ -169,12 +162,10 @@ void setup() {
   delay(150);
   Serial.println("00");
   pinch1.init(true);
-
   Serial.println("01");
   delay(100);
   pinch1.setAddress((uint8_t)01);
   Serial.println("02");
-
   digitalWrite(4, HIGH);
     delay(150);
   grab1.init(true);
@@ -187,7 +178,6 @@ void setup() {
   delay(150);
   Serial.println("10");
   wrist1.init(true);
-
   Serial.println("11");
   delay(100);
   wrist1.setAddress((uint8_t)03);
@@ -197,17 +187,14 @@ void setup() {
   delay(150);
   Serial.println("13");
   open1.init(true);
-
   Serial.println("14");
   delay(100);
   open1.setAddress((uint8_t)05);
   Serial.println("15");
-
   digitalWrite(A2, HIGH);
   delay(150);
   Serial.println("13");
   wrist2.init(true);
-
   Serial.println("14");
   delay(100);
   wrist2.setAddress((uint8_t)06);
@@ -217,7 +204,6 @@ void setup() {
   delay(150);
   Serial.println("13");
   wrist3.init(true);
-
   Serial.println("14");
   delay(100);
   wrist3.setAddress((uint8_t)07);
@@ -237,16 +223,13 @@ wrist1.startContinuous();
 //wrist2.startContinuous();
 wrist3.startContinuous();
 open1.startContinuous();
-while (!Serial);
     Serial.println("Edge Impulse Inferencing Demo");
-
     // summary of inferencing settings (from model_metadata.h)
     ei_printf("Inferencing settings:\n");
     ei_printf("\tInterval: %.2f ms.\n", (float)EI_CLASSIFIER_INTERVAL_MS);
     ei_printf("\tFrame size: %d\n", EI_CLASSIFIER_DSP_INPUT_FRAME_SIZE);
     ei_printf("\tSample length: %d ms.\n", EI_CLASSIFIER_RAW_SAMPLE_COUNT / 16);
     ei_printf("\tNo. of classes: %d\n", sizeof(ei_classifier_inferencing_categories) / sizeof(ei_classifier_inferencing_categories[0]));
-
     if (microphone_inference_start(EI_CLASSIFIER_RAW_SAMPLE_COUNT) == false) {
         ei_printf("ERR: Could not allocate audio buffer (size %d), this could be due to the window length of your model\r\n", EI_CLASSIFIER_RAW_SAMPLE_COUNT);
         return;
@@ -267,7 +250,6 @@ void setServoPulse(uint8_t n, double pulse) {
   Serial.println(pulse);
   pwm.setPWM(n, 0, pulse);
 }
-
 void servoMinUpToMid(struct servo servoID) {
   Serial.println(servoID.id);
     for (uint16_t pulselen = servoID.minPos; pulselen < servoID.midPos; pulselen++) {
@@ -275,7 +257,6 @@ void servoMinUpToMid(struct servo servoID) {
     }
     Serial.println("Done MinUpToMid");
 }
-
 void servoMaxDownToMid(struct servo servoID) {
   Serial.println(servoID.id);
     for (uint16_t pulselen = servoID.maxPos; pulselen > servoID.midPos; pulselen--) {
@@ -283,7 +264,6 @@ void servoMaxDownToMid(struct servo servoID) {
     }
     Serial.println("Done MaxDownToMid");
 }
-
 void servoMidUpToMax(struct servo servoID) {
   Serial.println(servoID.id);
     for (uint16_t pulselen = servoID.midPos; pulselen < servoID.maxPos; pulselen++) {
@@ -291,7 +271,6 @@ void servoMidUpToMax(struct servo servoID) {
     }
     Serial.println("Done MidUpToMax");
 }
-
 void servoMidDownToMin(struct servo servoID) {
   Serial.println(servoID.id);
     for (uint16_t pulselen = servoID.midPos; pulselen > servoID.minPos; pulselen--) {
@@ -299,16 +278,13 @@ void servoMidDownToMin(struct servo servoID) {
     }
     Serial.println("Done MidDownToMin");
 }
-
 void servoMaxDownToMin(struct servo servoID) {
   Serial.println(servoID.id);
     for (uint16_t pulselen = servoID.maxPos; pulselen > servoID.minPos; pulselen--) {
     pwm.setPWM(servoID.id, 0, pulselen);
     }
     Serial.println("Done MaxDownToMin");
-
 }
-
 void servoMinUpToMax(struct servo servoID) {
   Serial.println(servoID.id);
     for (uint16_t pulselen = servoID.minPos; pulselen < servoID.maxPos; pulselen++) {
@@ -316,7 +292,6 @@ void servoMinUpToMax(struct servo servoID) {
     }
     Serial.println("MinUpToMax");
 }
-
 void servoMinUpToMax2(struct servo servoID) {
   Serial.println(servoID.id);
     for (uint16_t pulselen = servoID.minPos; pulselen < servoID.maxPos2; pulselen++) {
@@ -324,7 +299,6 @@ void servoMinUpToMax2(struct servo servoID) {
     }
     Serial.println("MinUpToMax");
 }
-
 void loop() {
       g=grab1.readRangeContinuousMillimeters();
      // if (!grab1.timeoutOccurred()){
@@ -375,31 +349,24 @@ void loop() {
        ei_printf("Starting inferencing in 2 seconds...\n");
   ei_printf("Recording...\n");
   bool m = microphone_inference_record();
-
   if (!m) {
     ei_printf("ERR: Failed to record audio...\n");
     return;
   }
-
   ei_printf("Recording done\n");
-
   signal_t signal;
   signal.total_length = EI_CLASSIFIER_RAW_SAMPLE_COUNT;
   signal.get_data = &microphone_audio_signal_get_data;
   ei_impulse_result_t result = {0};
-
   EI_IMPULSE_ERROR r = run_classifier(&signal, &result, debug_nn);
-
   if (r != EI_IMPULSE_OK) {
     ei_printf("ERR: Failed to run classifier (%d)\n", r);
     return;
   }
-
   ei_printf("Predictions ");
   ei_printf("(DSP: %d ms., Classification: %d ms., Anomaly: %d ms.)",
     result.timing.dsp, result.timing.classification, result.timing.anomaly);
   ei_printf(": \n");
-
   for (size_t ix = 0; ix < EI_CLASSIFIER_LABEL_COUNT; ix++) {
     ei_printf("    %s: %.5f\n", result.classification[ix].label, result.classification[ix].value);
   }
@@ -418,6 +385,7 @@ void loop() {
     //  if (!wrist1.timeoutOccurred()){
       if ((w < 80)&&(w>1)&&(grabstate==0)&&(wriststate==0)) {
       servoMinUpToMax(servo0);
+      delay(1000);
       wriststate=1;
       }
      // }
@@ -433,18 +401,14 @@ void loop() {
       else{
       }
   }
-
   static void pdm_data_ready_inference_callback(void)
 {
     int bytesAvailable = PDM.available();
-
     // read into the sample buffer
     int bytesRead = PDM.read((char *)&sampleBuffer[0], bytesAvailable);
-
     if (inference.buf_ready == 0) {
         for(int i = 0; i < bytesRead>>1; i++) {
             inference.buffer[inference.buf_count++] = sampleBuffer[i];
-
             if(inference.buf_count >= inference.n_samples) {
                 inference.buf_count = 0;
                 inference.buf_ready = 1;
@@ -453,7 +417,6 @@ void loop() {
         }
     }
 }
-
 /**
  * @brief      Init inferencing struct and setup/start PDM
  *
@@ -464,36 +427,27 @@ void loop() {
 static bool microphone_inference_start(uint32_t n_samples)
 {
     inference.buffer = (int16_t *)malloc(n_samples * sizeof(int16_t));
-
     if(inference.buffer == NULL) {
         return false;
     }
-
     inference.buf_count  = 0;
     inference.n_samples  = n_samples;
     inference.buf_ready  = 0;
-
     // configure the data receive callback
     PDM.onReceive(&pdm_data_ready_inference_callback);
-
     PDM.setBufferSize(4096);
-
     // initialize PDM with:
     // - one channel (mono mode)
     // - a 16 kHz sample rate
     if (!PDM.begin(1, EI_CLASSIFIER_FREQUENCY)) {
         ei_printf("Failed to start PDM!");
         microphone_inference_end();
-
         return false;
     }
-
     // set the gain, defaults to 20
     PDM.setGain(127);
-
     return true;
 }
-
 /**
  * @brief      Wait on new data
  *
@@ -503,24 +457,19 @@ static bool microphone_inference_record(void)
 {
     inference.buf_ready = 0;
     inference.buf_count = 0;
-
     while(inference.buf_ready == 0) {
         delay(10);
     }
-
     return true;
 }
-
 /**
  * Get raw audio signal data
  */
 static int microphone_audio_signal_get_data(size_t offset, size_t length, float *out_ptr)
 {
     numpy::int16_to_float(&inference.buffer[offset], out_ptr, length);
-
     return 0;
 }
-
 /**
  * @brief      Stop PDM and release buffers
  */
