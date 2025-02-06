@@ -1,73 +1,33 @@
-/*************************************************** 
-  This is an example for our Adafruit 16-channel PWM & Servo driver
-  Servo test - this will drive 8 servos, one after the other on the
-  first 8 pins of the PCA9685
-  Pick one up today in the adafruit shop!
-  ------> http://www.adafruit.com/products/815
-  
-  These drivers use I2C to communicate, 2 pins are required to  
-  interface.
-  Adafruit invests time and resources providing this open source code, 
-  please support Adafruit and open-source hardware by purchasing 
-  products from Adafruit!
-  Written by Limor Fried/Ladyada for Adafruit Industries.  
-  BSD license, all text above must be included in any redistribution
- ****************************************************/
 #include <Wire.h>
 #include <Adafruit_PWMServoDriver.h>
 #include <VL53L0X.h>
 #include <PDM.h>
 #include <nikarts-project-1_inferencing.h>
 Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
-VL53L0X pinch1;
-VL53L0X grab1;
-VL53L0X sizeread0;
-VL53L0X sizeread2;
-VL53L0X wrist1;
-VL53L0X wrist2;
-VL53L0X wrist3;
-VL53L0X open1;
-#define SERVOMINSTOP 100
-#define SERVOMIN  (120) // This is the 'minimum' pulse length count (out of 4096)
-#define SERVOMID 300
-#define SERVOMID2 270
-#define SERVOMID3 280 
-#define SERVOMID35 270
-#define SERVOMID4 210
-#define SERVOMID45 200
+VL53L0X pinch1, grab1, sizeread0, sizeread2, wrist1, wrist2, wrist3, open1;
+#define SERVOMINSTOP 100 //miniumum servo angle
+#define SERVOMIN  120 //grabbing angle
+#define SERVOMID 300 //pinching angle
+#define SERVOMID2 270 //pinching angle 2
+#define SERVOMID3 280 //pinching angle 3
+#define SERVOMID35 270 //grabbing angle 2
+#define SERVOMID4 210 //grabbing angle 3
+#define SERVOMID45 200 //grabbing angle 4
 #define SERVOMAX  (400) // This is the 'maximum' pulse length count (out of 4096)
-#define SERVOMAXSTOP 210
-#define SERVOMAXSTOP1 230
-#define SERVOMAXSTOP2 200
-#define SERVOMAXSTOP3 380
-#define SERVOMAXSTOP4 315
+#define SERVOMAXSTOP 210 //Grabbing angle 1 for wrist in tilted position
+#define SERVOMAXSTOP1 230 //Grabbing angle 2 for wrist in tilted position
+#define SERVOMAXSTOP2 200 //Grabbing angle 3 for wrist in tilted position
+#define SERVOMAXSTOP3 380 //Grabbing angle 4 for wrist in tilted position
+#define SERVOMAXSTOP4 315 //Grabbing angle 5 for wrist in tilted position
 #define SERVO_FREQ 50 // Analog servos run at ~50 Hz updates
-//int sensorPin = A0;
-//int sensorPin1 = A1;
-//int sensorPin2 = A2;// select the input pin for the potentiometer      // select the pin for the LED
-int grabstate=0;
-int wriststate=0;
-int pinchstate=0;
-int w;
-int o;
-int g;
-int p;
-int w2;
-int w3;
-int s0;
-int s2;
+int grabstate = 0, wriststate = 0, pinchstate = 0;
+int w, o, g, p, w2, w3, s0, s2;
 //unsigned long duration;
 //unsigned long duration1;
 //unsigned long duration2;
 struct servo {
-  int id;
-   int minPos;
-   int midPos;
-   int midPos2;
-   int maxPos;
-   int maxPos2;
-   int maxPos3;
-};
+  int id, minPos, midPos, midPos2, maxPos, maxPos2, maxPos3;
+} servos[7];
 typedef struct {
     int16_t *buffer;
     uint8_t buf_ready;
@@ -76,110 +36,34 @@ typedef struct {
 } inference_t;
 static inference_t inference;
 static signed short sampleBuffer[2048];
-static bool debug_nn = false; // Set this to true to see e.g. features generated from the raw signal
-//void servoUp(struct servo servoID) {
-//  Serial.println(servoID.id);
-//    for (uint16_t pulselen = servoID.minPos; pulselen < servoID.maxPos; pulselen++) {
-//    pwm.setPWM(servoID.id, 0, pulselen);
-//    }
-//    Serial.println("Done Up");
-//}
-//
-//void servoDown(struct servo servoID) {
-//  Serial.println(servoID.id);
-//    for (uint16_t pulselen = servoID.maxPos; pulselen > servoID.minPos; pulselen--) {
-//    pwm.setPWM(servoID.id, 0, pulselen);
-//    }
-//    Serial.println("Done Down");
-//}
-// our servo # counter
-//uint8_t servonum = 0;
-struct servo servo0; 
-struct servo servo1; 
-struct servo servo2;
-struct servo servo3;
-struct servo servo4;
-struct servo servo5;
-struct servo servo6;
+static bool debug_nn = false; 
 void setup() {
-  servo0.id = 16;
-  servo0.minPos = SERVOMINSTOP; 
-  servo0.midPos = SERVOMID;
-  servo0.maxPos = SERVOMAXSTOP;
-  servo1.id = 13;
-  servo1.minPos = SERVOMIN;
-  servo1.midPos = SERVOMID;
-  servo1.midPos2 = SERVOMID45;
-  servo1.maxPos = SERVOMAX;
-  servo1.maxPos2 = SERVOMAXSTOP1;
-  servo1.maxPos3 = SERVOMAXSTOP3;
-  servo2.id = 11;
-  servo2.minPos = SERVOMIN;
-  servo2.midPos = SERVOMID;
-  servo2.midPos2 = SERVOMID45;
-  servo2.maxPos = SERVOMAX;
-  servo2.maxPos2 = SERVOMAXSTOP2;
-  servo2.maxPos3 = SERVOMAXSTOP4;
-  servo3.id = 15;
-  servo3.minPos = SERVOMIN;
-  servo3.midPos = SERVOMID;
-  servo3.midPos2 = SERVOMID3;
-  servo3.maxPos = SERVOMAX;
-  servo4.id = 14;
-  servo4.minPos = SERVOMIN;
-  servo4.midPos = SERVOMID4;
-  servo4.midPos2 = SERVOMID35;
-  servo4.maxPos = SERVOMAX;
-  servo5.id = 12;
-  servo5.minPos = SERVOMIN;
-  servo5.midPos = SERVOMID4;
-  servo5.midPos2 = SERVOMID4;
-  servo5.maxPos = SERVOMAX;
-  servo6.id = 10;
-  servo6.minPos = SERVOMINSTOP;
-  servo6.midPos = SERVOMID;
-  servo6.midPos2 = SERVOMID3;
-  servo6.maxPos = SERVOMAXSTOP;
   pwm.begin();
   pwm.setOscillatorFrequency(27000000);
-  pwm.setPWMFreq(SERVO_FREQ);  // Analog servos run at ~50 Hz updates
-  delay(10);
-  pinMode(A3, OUTPUT); 
-  pinMode(A2, OUTPUT);  
-  pinMode(A1, OUTPUT);
-  pinMode(A0, OUTPUT);
-  pinMode(13, OUTPUT);
-  pinMode(12, OUTPUT);
-  pinMode(11, OUTPUT);
-  pinMode(10, OUTPUT);
-  pinMode(9, OUTPUT);
-  pinMode(8, OUTPUT);
-  pinMode(7, OUTPUT);
-  pinMode(6, OUTPUT);
-  pinMode(5, OUTPUT);
-  pinMode(4, OUTPUT);
-  pinMode(3, OUTPUT);
-  pinMode(2, OUTPUT);
-  digitalWrite(2, LOW);
-  digitalWrite(3, LOW);
-  digitalWrite(4, LOW);
-  digitalWrite(5, LOW);
-  digitalWrite(6, LOW);
-  digitalWrite(7, LOW);
-  digitalWrite(8, LOW);
-  digitalWrite(9, LOW);
-  digitalWrite(10, LOW);
-  digitalWrite(11, LOW);
-  digitalWrite(12, LOW);
-  digitalWrite(13, LOW);
-  digitalWrite(A0, LOW);
-  digitalWrite(A1, LOW);
-  digitalWrite(A2, LOW);
-  digitalWrite(A3, LOW);
-  delay(500);
+  pwm.setPWMFreq(SERVO_FREQ);
   Wire.begin();
   Serial.begin(9600);
- digitalWrite(6, HIGH);
+  for (int pin = 2; pin <= A3; ++pin) {
+        pinMode(pin, OUTPUT);
+        digitalWrite(pin, LOW); // Initialize pins to LOW
+   }
+  initializeSensors();
+  initializeServos();
+  initializeInferencing();
+}
+
+void initializeServos() {
+  servos[0] = {0, SERVOMINSTOP, SERVOMID, -1, SERVOMAXSTOP, -1, -1};
+  servos[1] = {1, SERVOMIN, SERVOMID, SERVOMID45, SERVOMAX, SERVOMAXSTOP1, SERVOMAXSTOP3};
+  servos[2] = {2, SERVOMIN, SERVOMID, SERVOMID45, SERVOMAX, SERVOMAXSTOP2, SERVOMAXSTOP4};
+  servos[3] = {3, SERVOMIN, SERVOMID, SERVOMID3, SERVOMAX, -1, -1};
+  servos[4] = {4, SERVOMIN, SERVOMID4, SERVOMID35, SERVOMAX, -1, -1};
+  servos[5] = {5, SERVOMIN, SERVOMID4, SERVOMID4, SERVOMAX, -1, -1};
+  servos[6] = {6, SERVOMINSTOP, SERVOMID, SERVOMID3, SERVOMAXSTOP, -1, -1};
+}
+
+void initializeSensors() {
+digitalWrite(6, HIGH);
   delay(150);
   Serial.println("00");
   pinch1.init(true);
@@ -240,33 +124,9 @@ void setup() {
   sizeread2.setAddress((uint8_t)07);
   Serial.println("15");
   Serial.println("addresses set");
-
-//  digitalWrite(10, HIGH);
-//  delay(150);
-//  Serial.println("13");
-//  sizeread2.init(true);
-//  Serial.println("14");
-//  delay(100);
-//  sizeread2.setAddress((uint8_t)08);
-//  Serial.println("15");
-//  Serial.println("addresses set");
-  
-  servoMinUpToMax(servo3);
-  delay(100);
-  servoMaxDownToMin(servo1);
-  servoMaxDownToMin(servo2);
-  servoMinUpToMax(servo4);  
-  servoMaxDownToMin(servo0);
-  servoMaxDownToMin(servo6);
-  servoMinUpToMax(servo5);
-pinch1.startContinuous();
-grab1.startContinuous();
-wrist1.startContinuous();
-wrist3.startContinuous();
-open1.startContinuous();
-sizeread0.startContinuous();
-sizeread2.startContinuous();
-    Serial.println("Edge Impulse Inferencing Demo");
+}
+void initializeInferencing(){
+      Serial.println("Edge Impulse Inferencing Demo");
     // summary of inferencing settings (from model_metadata.h)
     ei_printf("Inferencing settings:\n");
     ei_printf("\tInterval: %.2f ms.\n", (float)EI_CLASSIFIER_INTERVAL_MS);
@@ -278,20 +138,13 @@ sizeread2.startContinuous();
         return;
     }
 }
-// You can use this function if you'd like to set the pulse length in seconds
-// e.g. setServoPulse(0, 0.001) is a ~1 millisecond pulse width. It's not precise!
-void setServoPulse(uint8_t n, double pulse) {
-  double pulselength;
-  
-  pulselength = 1000000;   // 1,000,000 us per second
-  pulselength /= SERVO_FREQ;   // Analog servos run at ~60 Hz updates
-  Serial.print(pulselength); Serial.println(" us per period"); 
-  pulselength /= 4096;  // 12 bits of resolution
-  Serial.print(pulselength); Serial.println(" us per bit"); 
-  pulse *= 1000000;  // convert input seconds to us
-  pulse /= pulselength;
-  Serial.println(pulse);
-  pwm.setPWM(n, 0, pulse);
+void performContinuousReadings() {
+  g = grab1.readRangeContinuousMillimeters();
+  s2=sizeread2.readRangeContinuousMillimeters();
+  p=pinch1.readRangeContinuousMillimeters();
+  o=open1.readRangeContinuousMillimeters();
+  w=wrist1.readRangeContinuousMillimeters();
+  w3=wrist3.readRangeContinuousMillimeters();
 }
 void servoMinUpToMid(struct servo servoID) {
   Serial.println(servoID.id);
@@ -378,10 +231,8 @@ void servoMaxDownToMin3(struct servo servoID) {
     Serial.println("MinUpToMax");
 }
 void loop() {
-      g=grab1.readRangeContinuousMillimeters();
-      s2=sizeread2.readRangeContinuousMillimeters();
-      Serial.println(s2);
-     // if (!grab1.timeoutOccurred()){
+     performContinuousReadings();
+     if (!grab1.timeoutOccurred()){
       if ((g < 40)&&(g>1)&&(grabstate==0)&&(wriststate==0)&&(s2>50)&&(s2>1)) {
       servoMaxDownToMid(servo5);
       servoMaxDownToMid(servo3);
@@ -400,9 +251,8 @@ void loop() {
       servoMinUpToMid2(servo1);
       grabstate=1;
       }
-     // }
-      g=grab1.readRangeContinuousMillimeters();
-//      if (!grab1.timeoutOccurred()){
+      }
+     if (!grab1.timeoutOccurred()){
         if((g < 40)&&(g>1)&&(grabstate==0)&&(wriststate==1)&&(pinchstate==0)){
       servoMinUpToMax(servo1);
       servoMinUpToMax(servo2);
@@ -412,16 +262,15 @@ void loop() {
       servoMaxDownToMin(servo3);
       grabstate=1;
       }
-    //  }
-      p=pinch1.readRangeContinuousMillimeters();
-//      if (!pinch1.timeoutOccurred()){
-        if ((p < 80)&&(p>40)&&(grabstate==0)&&(wriststate==0)&&(pinchstate==0)) {
+      }
+
+      if (!pinch1.timeoutOccurred()){
+      if ((p < 80)&&(p>40)&&(grabstate==0)&&(wriststate==0)&&(pinchstate==0)) {
       servoMinUpToMax2(servo2);
       servoMinUpToMax2(servo1);
       grabstate=1;
       pinchstate=1;
       }
-      p=pinch1.readRangeContinuousMillimeters();
       if ((p < 80)&&(p>1)&&(grabstate==0)&&(wriststate==1)&&(pinchstate==0)){
         servoMinUpToMax3(servo2);
         servoMinUpToMax3(servo1);
@@ -429,9 +278,8 @@ void loop() {
         pinchstate=2;
       }
       
-//      }
-      o=open1.readRangeContinuousMillimeters();
- //     if (!open1.timeoutOccurred()){
+     }
+     if (!open1.timeoutOccurred()){
       if ((o < 40)&&(o>4)&&(grabstate==1)&&(pinchstate==0)) {
       servoMinUpToMax(servo4);
       delay(100);
@@ -445,7 +293,6 @@ void loop() {
       delay(3000);
       grabstate=0;
       }
-      o=open1.readRangeContinuousMillimeters();
       if ((o < 40)&&(o>4)&&(grabstate==1)&&(pinchstate==1)) {
       servoMaxDownToMin2(servo1);
       servoMaxDownToMin2(servo2);
@@ -453,7 +300,6 @@ void loop() {
       grabstate=0;
       pinchstate=0;
       }
-       o=open1.readRangeContinuousMillimeters();
       if ((o < 40)&&(o>4)&&(grabstate==1)&&(pinchstate==2)) {
       servoMaxDownToMin3(servo1);
       servoMaxDownToMin3(servo2);
@@ -461,7 +307,6 @@ void loop() {
       grabstate=0;
       pinchstate=0;
       }
-      o=open1.readRangeContinuousMillimeters();
       if ((o < 40)&&(o>4)&&(grabstate==0)&&(pinchstate==0)) {
        ei_printf("Starting inferencing in 2 seconds...\n");
   ei_printf("Recording...\n");
@@ -498,23 +343,21 @@ void loop() {
 #endif
 }
     //  }
-      w=wrist1.readRangeContinuousMillimeters();
-    //  if (!wrist1.timeoutOccurred()){
+    if (!wrist1.timeoutOccurred()){
       if ((w < 150)&&(w>110)&&(grabstate==0)&&(wriststate==0)) {
       servoMinUpToMax(servo0);
       delay(1000);
       wriststate=1;
       }
-     // }
+      }
      if (wriststate==1){
-      w3=wrist3.readRangeContinuousMillimeters();
-     // if (!wrist2.timeoutOccurred()){
+      if (!wrist2.timeoutOccurred()){
       if ((w3 < 180)&&(w3>3)&&(grabstate==0)&&(wriststate==1)) {
       servoMaxDownToMin(servo0);
       delay(1000);
       wriststate=0;
       }
-    //  }
+      }
      }
       else{
       }
