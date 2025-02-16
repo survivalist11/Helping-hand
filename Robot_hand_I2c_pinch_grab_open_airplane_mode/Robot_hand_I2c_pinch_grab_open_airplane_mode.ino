@@ -33,9 +33,9 @@ void setup() {
     Serial.println("PCA9685 Initialized!");
 
     // Test 0°, 90°, 180°, and 270° to verify calibration
-    pwm.setPWM(SERVO_1, 0, angleToPulse(135));
-    pwm.setPWM(SERVO_2, 0, angleToPulse(90)); 
-    pwm.setPWM(SERVO_3, 0, angleToPulse(90));
+    pwm.setPWM(SERVO_1, 0, angleToPulse(195));
+    pwm.setPWM(SERVO_2, 0, angleToPulse(93)); 
+    pwm.setPWM(SERVO_3, 0, angleToPulse(93));
     
    
 }
