@@ -1,60 +1,45 @@
 #include <Wire.h>
 #include <Adafruit_PWMServoDriver.h>
 
-Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver(0x40); // Default I2C address
+Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver(0x40);
 
-// Servo parameters
-#define SERVO_MIN  150   // Minimum pulse length count
-#define SERVO_MAX  600   // Maximum pulse length count
-#define SERVO_FREQ 50    // 50 Hz frequency
-
-// Arm link lengths (adjust according to your setup)
-const float L1 = 10.0;  
-const float L2 = 10.0;  
+// Adjust Servo Pulse Range (Tweak These!)
+#define SERVO_MIN  100   // Pulse width for 0°
+#define SERVO_MAX  700   // Pulse width for 270°
+#define SERVO_FREQ 50    
 
 // Servo channels on PCA9685
-#define SERVO_1 0  // First joint (Base)
-#define SERVO_2 1  // Second joint (Elbow)
+#define SERVO_1 0  // Base rotation
+#define SERVO_2 1  // Angler joint
+#define SERVO_3 2  // Side-to-side motion
 
-// Function to map angle (0-180 degrees) to PCA9685 pulse width
+// Function to map angle (0-270) to PCA9685 pulse width
 int angleToPulse(int angle) {
-    return map(angle, 0, 180, SERVO_MIN, SERVO_MAX);
-}
-
-// Inverse Kinematics function
-void moveTo(float x, float y) {
-    float d = sqrt(x*x + y*y);
-    if (d > (L1 + L2)) return; // Point is unreachable
-
-    float theta2 = acos((x*x + y*y - L1*L1 - L2*L2) / (2 * L1 * L2));
-    float theta1 = atan2(y, x) - atan2(L2 * sin(theta2), L1 + L2 * cos(theta2));
-
-    int angle1 = int(theta1 * 180.0 / PI);  
-    int angle2 = int(theta2 * 180.0 / PI);
-
-    // Send angles to servos via PCA9685
-    pwm.setPWM(SERVO_1, 0, angleToPulse(angle1 + 90));  
-    pwm.setPWM(SERVO_2, 0, angleToPulse(angle2 + 90));
-}
-
-// Function to move the arm in a straight line
-void moveInLine(float x0, float y0, float xf, float yf, int steps) {
-    for (int i = 0; i <= steps; i++) {
-        float x = x0 + (xf - x0) * i / steps;
-        float y = y0 + (yf - y0) * i / steps;
-        moveTo(x, y);
-        delay(50);
-    }
+    int pulse = map(angle, 0, 270, SERVO_MIN, SERVO_MAX);
+    Serial.print("Angle: "); Serial.print(angle);
+    Serial.print(" -> Pulse: "); Serial.println(pulse);
+    return pulse;
 }
 
 void setup() {
+    Serial.begin(115200);
+    Serial.println("Starting PCA9685 Servo Calibration...");
+
     Wire.begin();
     pwm.begin();
     pwm.setPWMFreq(SERVO_FREQ);
     delay(500);
+    
+    Serial.println("PCA9685 Initialized!");
+
+    // Test 0°, 90°, 180°, and 270° to verify calibration
+    pwm.setPWM(SERVO_1, 0, angleToPulse(135));
+    pwm.setPWM(SERVO_2, 0, angleToPulse(90)); 
+    pwm.setPWM(SERVO_3, 0, angleToPulse(90));
+    
+   
 }
 
 void loop() {
-    moveInLine(5, 5, 10, 5, 20);  // Move from (5,5) to (10,5) in a straight line
-    delay(1000);
+    // No movement in loop; servos remain in last position
 }
